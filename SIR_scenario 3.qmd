@@ -1,0 +1,99 @@
+---
+title: "Infectious disease modelling_SIR model"
+author: "Finta"
+format: html
+editor: visual
+---
+
+SIR MODEL STRUCTURE
+
+We now have:
+
+S → I → R
+Recovered individuals gain immunity (do not return to S)
+
+Total population:
+
+N=S+I+R
+
+## ** model equations **. ##
+If N is the population, 
+
+dS/dt =  - beta * SI /N
+dI/dt = beta * SI/N  - gamma * I
+dR /dt = gamma * I 
+
+```{r}
+library(deSolve)
+```
+
+## ** equations ** ###
+
+```{r}
+sir_model <- function(time, state, parameters) {
+  with(as.list(c(state, parameters)), {
+    
+    N <- S + I + R
+    
+    # Force of infection
+    lambda <- beta * S * I / N
+    
+    dS <- -lambda
+    dI <- lambda - gamma * I
+    dR <- gamma * I
+    
+    list(c(dS, dI, dR))
+  })
+}
+```
+
+## Parameters ##
+
+```{r, parameters}
+parameters <- c(
+  beta = 0.6,   # transmission rate
+  gamma = 0.2   # recovery rate
+)
+```
+
+## Initial conditions ##
+
+```{r, initials}
+state <- c(
+  S = 9900, 
+  I = 100,
+  R = 0
+)
+```
+
+## Time and simulations ##
+
+```{r, time and simulations}
+times <- seq(0, 200, by = 0.1) 
+
+out <- ode(
+  y = state,
+  times = times,
+  parms = parameters,
+  func = sir_model
+)
+out <- as.data.frame(out)
+```
+Ploting ###
+ 
+```{r, plot}
+ plot(out$time, out$S, type = "l",
+     col = "blue",
+     xlab = "Time",
+     ylab = "Population",
+     ylim = c(0, max(out$S)))
+
+lines(out$time, out$I, col = "red")
+lines(out$time, out$R, col = "green")
+
+legend("right",
+       legend = c("Susceptible", "Infected", "Recovered"),
+       col = c("blue", "red", "green"),
+       lty = 1)
+```
+ 

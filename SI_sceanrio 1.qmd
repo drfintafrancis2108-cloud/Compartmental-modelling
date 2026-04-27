@@ -1,0 +1,103 @@
+---
+title: "Infectious disease modelling_SI model"
+author: "Finta Francis"
+format: html
+editor: visual
+---
+
+## *** SI MODEL STRUCTURE
+
+## ------We only track --------
+
+S (Susceptible humans)
+I (Infected humans)
+
+Total population:
+
+N=S+I( Here we have only two groups, those who are susceptible, and those who are infected )
+
+Model equations
+
+dS/ dt = μN−βSI−μS
+( Here we are assuming the population to be constant, births = deaths, so we added μ * N , to the population , who is suceptible, μ is the mortality rate  )
+
+ dI / dt = βSI−μI
+
+Where:
+
+β = transmission rate from susceptible to infectiousness . In SI model, we assume that once S moves to I, they remain in the infectious compartment.
+
+μ = natural death rate (keeps population stable)
+
+```{r, chunk 1}
+library(deSolve)
+```
+
+You can add options to executable code like this
+
+```{r, model functions}
+si_model <- function(time, state, parameters) {
+  with(as.list(c(state, parameters)), {
+    
+    N <- S + I
+    
+    # Force of infection
+    lambda <- beta * I
+    
+    dS <- mu * N - lambda * S - mu * S
+    dI <- lambda * S - mu * I
+    
+    list(c(dS, dI))
+  })
+}
+```
+## ** Parameters 
+
+Here we define the paprameters in the above equation
+
+```{r, parameters}
+parameters <- c(
+  beta = 0.0005,   # transmission rate
+  mu = 1/(60*365)  # death rate
+)
+```
+
+## ** Initial conditions ** ##
+
+```{r, initials}
+
+## Here we assume that in the total population of 10000, 100 people got infected, so I = 100, S = N - I , 
+
+state <- c(
+  I = 10,
+  S = 990
+)
+```
+
+## ** Time and simulations ** ## 
+
+```{r, time and simukations }
+times <- seq(0, 365, by = 1)
+
+## simulations 
+
+out <- ode(y = state, times = times, func = si_model, parms = parameters)
+out <- as.data.frame(out)
+```
+##  ** Plots ** ###
+
+```{r, plots}
+plot(out$time, out$S, type = "l",
+     col = "blue",
+     xlab = "Time (days)",
+     ylab = "Population")
+
+lines(out$time, out$I, col = "red")
+
+legend("right",
+       legend = c("Susceptible", "Infected"),
+       col = c("blue", "red"),
+       lty = 1)
+```
+
+In this model, the disease free eullibrium is maintained as susceptible increases, and the infectiousness decreases.

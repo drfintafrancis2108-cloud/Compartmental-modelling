@@ -1,0 +1,263 @@
+---
+title: "Infectious_disease_modelling_case scenario 1"
+author: "Finta Francis"
+format: html
+editor: visual
+---
+# **Modeling Malaria Transmission Dynamics in Nigeria Using a Vector–Host Framework**
+
+## **Abstract**
+
+Malaria remains one of the most significant public health challenges in Nigeria, contributing substantially to global morbidity and mortality. This study develops a deterministic vector–host transmission model to simulate malaria dynamics and evaluate the impact of intervention strategies. Using a compartmental SEIR (human)–SEI (mosquito) framework, we simulate three intervention scenarios: increased insecticide-treated net (ITN) coverage (75%), indoor spraying access (50%), and treatment access (45%). The model is implemented in R using the deSolve package. Results highlight the relative effectiveness of combined interventions in reducing infection prevalence.
+
+---
+
+# 1. Introduction
+
+Malaria is a life-threatening parasitic disease transmitted through bites of infected *Anopheles* mosquitoes. According to the World Health Organization, sub-Saharan Africa accounts for over 90% of global malaria cases and deaths, with Nigeria alone contributing a significant proportion.
+
+### Why Modeling is Needed
+
+* Malaria is **endemic**, not episodic
+* Transmission depends on **vector dynamics**
+* Interventions interact in **nonlinear ways**
+* Field experiments are costly → models provide insight
+
+Mathematical models allow us to:
+
+* Predict disease spread
+* Evaluate interventions before implementation
+* Identify key transmission drivers
+
+---
+
+# 📖 2. Literature Review & Parameter Justification
+
+##  Biting Rate (a)
+
+* Empirical studies in Nigeria report:
+
+  * ~6–17 bites/person/night (field studies)
+* Scaled in models to:
+
+  * **0.2–0.5 per day**
+
+##  Transmission Probabilities
+
+* Mosquito → human (**b**): 0.1–0.5
+* Human → mosquito (**c**): 0.1–0.3
+
+##  Incubation Period
+
+* Humans: ~10–14 days
+* Mosquitoes: ~10 days
+
+##  Mosquito Mortality
+
+* Lifespan: 7–14 days
+
+---
+
+# 3. Model Formulation
+
+We use a **vector-host SEIR-SEI model**.
+
+## Human Population:
+
+* Susceptible (Sₕ)
+* Exposed (Eₕ)
+* Infected (Iₕ)
+* Recovered (Rₕ)
+
+## Mosquito Population:
+
+* Susceptible (Sₘ)
+* Exposed (Eₘ)
+* Infected (Iₘ)
+
+---
+
+## Transmission Dynamics
+
+* Infection from mosquito to human:
+
+  * Depends on biting rate and infected mosquitoes
+* Infection from human to mosquito:
+
+  * Depends on infected humans
+
+---
+
+# 4. Model Implementation in R
+
+##  Load Package
+
+```{r}
+install.packages("deSolve")
+library(deSolve)
+```
+
+## Model Equations
+
+```{r, hunk 2 }
+malaria_model <- function(time, state, parameters) {
+  with(as.list(c(state, parameters)), {
+    
+    Nh <- Sh + Eh + Ih + Rh
+    Nm <- Sm + Em + Im
+    
+    # Adjusted biting rate (interventions affect this)
+    a_eff <- a * (1 - ITN_effect) * (1 - spray_effect)
+    
+    lambda_h <- a_eff * b * Im / Nm
+    lambda_m <- a_eff * c * Ih / Nh
+    
+    dSh <- mu_h * Nh - lambda_h * Sh - mu_h * Sh
+    dEh <- lambda_h * Sh - sigma_h * Eh - mu_h * Eh
+    dIh <- sigma_h * Eh - gamma_h * Ih - mu_h * Ih
+    dRh <- gamma_h * Ih - mu_h * Rh
+    
+    dSm <- lambda_m * Sm 
+    dEm <- lambda_m * Sm - sigma_m * Em
+    dIm <- sigma_m * Em - mu_m * Im
+    
+    list(c(dSh, dEh, dIh, dRh, dSm, dEm, dIm))
+  })
+}
+```
+
+## Parameters
+
+```{r, chunk3}
+base_parameters <- c(
+  a = 0.3,          # biting rate
+  b = 0.3,          # mosquito → human transmission
+  c = 0.2,          # human → mosquito transmission
+  
+  sigma_h = 1/10,   # human incubation
+  sigma_m = 1/10,   # mosquito incubation
+  gamma_h = 1/14,   # recovery rate
+  
+  mu_h = 1/(60*365),# human death rate
+  mu_m = 1/10,      # mosquito death rate
+  
+  ITN_effect = 0,
+  spray_effect = 0
+)
+```
+
+## Initial Conditions
+
+```{r, chunk 4}
+state <- c(
+  Sh = 990, Eh = 5, Ih = 5, Rh = 0,
+  Sm = 10000, Em = 100, Im = 100
+)
+```
+
+##  Simulation Time
+
+```{r, chunk 5}
+times <- seq(0, 365, by = 1)
+
+params_base <- base_parameters
+```
+
+# 5. Intervention Scenarios
+
+We test three hypotheses:
+
+---
+
+## Scenario 1: 75% ITN Coverage
+
+Effect:
+
+* Reduces biting rate
+
+```{r, chunk 6}
+params_itn <- base_parameters
+params_itn["ITN_effect"] <- 0.75 * 0.6
+```
+
+## Scenario 2: 50% Indoor Spraying
+
+```{r, chunk 7}
+params_spray <- base_parameters
+params_spray["spray_effect"] <- 0.5 * 0.5
+```
+
+## Scenario 3: 45% Treatment Coverage
+
+Effect:
+
+* Increases recovery rate
+
+```{r, chunk 8}
+params_treat <- base_parameters
+params_treat["gamma_h"] <- 1/10
+```
+
+# Run Simulations
+
+```{r, chunk 9}
+out_base <- ode(state, times, malaria_model, params_base)
+out_itn <- ode(state, times, malaria_model, params_itn)
+out_spray <- ode(state, times, malaria_model, params_spray)
+out_treat <- ode(state, times, malaria_model, params_treat)
+
+out_base <- as.data.frame(out_base)
+out_itn <- as.data.frame(out_itn)
+out_spray <- as.data.frame(out_spray)
+out_treat <- as.data.frame(out_treat)
+
+```
+
+## ** SEIR plot
+
+```{r, plot chunk 1}
+matplot(out_base$time,
+        cbind(out_base$Sh, out_base$Eh, out_base$Ih, out_base$Rh),
+        type = "l",
+        lty = 1,
+        col = c("blue", "orange", "red", "green"),
+        xlab = "Time (days)",
+        ylab = "Population")
+
+legend("right",
+       legend = c("S", "E", "I", "R"),
+       col = c("blue", "orange", "red", "green"),
+       lty = 1)
+```
+
+
+## ** Mosquito Dynamics
+
+```{r, chunk 10}
+plot(out$time, out$Sm, type="l",
+     xlab="Time (days)", ylab="Mosquito Population",
+     lty=1)
+
+lines(out$time, out$Em, lty=2)
+lines(out$time, out$Im, lty=3)
+
+legend("right",
+       legend=c("Susceptible Mosq","Exposed Mosq","Infected Mosq"),
+       lty=1:3)
+```
+## ** Comparison scenarios
+
+```{r, chunk12}
+plot(out_base$time, out_base$Ih, type="l", col="black",
+     xlab="Time", ylab="Infected Humans")
+
+lines(out_itn$time, out_itn$Ih, col="blue")
+lines(out_spray$time, out_spray$Ih, col="green")
+lines(out_treat$time, out_treat$Ih, col="red")
+
+legend("topright",
+       legend=c("Baseline","ITN","Spray","Treatment"),
+       col=c("black","blue","green","red"),
+       lty=1)
+```
+

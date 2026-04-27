@@ -1,0 +1,103 @@
+---
+title: "Infectious disease modelling_SEIR model"
+author: "Finta Francis"
+format: html
+editor: visual
+---
+
+SEIR MODEL STRUCTURE
+
+We now include:
+
+S → E → I → R
+E = exposed (infected but not yet infectious)
+
+Total population:
+
+N=S+E+I+R
+
+## *** Model equations *** ##
+
+dS/dt = - beta * SI /N
+dE/dt = beta * SI /N  - sigma * E
+dI/dt = sigma * E - gamma * I
+dR/dt - gamma * I
+
+```{r}
+library(deSolve)
+```
+
+## Equations
+
+```{r, equations}
+
+seir_model <- function(time, state, parameters) {
+  with(as.list(c(state, parameters)), {
+    
+    N <- S + E + I + R
+    
+    # Force of infection
+    lambda <- beta * S * I / N
+    
+    dS <- -lambda
+    dE <- lambda - sigma * E
+    dI <- sigma * E - gamma * I
+    dR <- gamma * I
+    
+    list(c(dS, dE, dI, dR))
+  })
+}
+```
+
+## ** parameters ** ##
+
+```{r, paramters}
+parameters <- c(
+  beta = 0.6,   # transmission rate
+  sigma = 0.2,  # incubation rate
+  gamma = 0.2   # recovery rate
+)
+```
+### *** Initial conditions ***. ###
+
+```{r, initials}
+state <- c(
+  S = 9900,
+  E = 50,
+  I = 50,
+  R = 0
+)
+```
+
+## ** time and simulations ** ##
+
+```{r, time and simulations}
+times <- seq(0, 200, by = 0.1)
+
+out   <- ode(
+  y = state, 
+  parms = parameters,
+  func = seir_model,
+  times = times
+)
+
+out <- as.data.frame(out)
+```
+## ** ploting ** ##
+
+```{r, plot}
+plot(out$time, out$S, type = "l",
+     col = "blue",
+     xlab = "Time",
+     ylab = "Population",
+     ylim = c(0, max(out$S)))
+
+lines(out$time, out$E, col = "orange")
+lines(out$time, out$I, col = "red")
+lines(out$time, out$R, col = "green")
+
+legend("right",
+       legend = c("S","E","I","R"),
+       col = c("blue","orange","red","green"),
+       lty = 1)
+```
